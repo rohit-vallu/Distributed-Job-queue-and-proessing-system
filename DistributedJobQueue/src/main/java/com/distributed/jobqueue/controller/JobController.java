@@ -56,25 +56,40 @@ public class JobController {
 
     @GetMapping
     public ResponseEntity<?> listJobs(
-            @RequestHeader(TENANT_HEADER) String tenantId,
+            @RequestHeader(value = TENANT_HEADER, required = false) String tenantId,
             @RequestParam(required = false) String status
     ) {
         List<Job> jobs;
-        if (status != null) {
-            JobStatus st = JobStatus.valueOf(status.toUpperCase());
-            jobs = jobRepository.findByTenantIdAndStatus(tenantId, st);
+
+        // Tenant-specific fetch if tenant header present
+        if (tenantId != null && !tenantId.isBlank()) {
+            if (status != null) {
+                JobStatus st = JobStatus.valueOf(status.toUpperCase());
+                jobs = jobRepository.findByTenantIdAndStatus(tenantId, st);
+            } else {
+                jobs = jobRepository.findByTenantId(tenantId);
+            }
         } else {
-            jobs = jobRepository.findByTenantId(tenantId);
+            // GLOBAL FETCH when no tenant header — UI filter OFF
+            if (status != null) {
+                JobStatus st = JobStatus.valueOf(status.toUpperCase());
+                jobs = jobRepository.findByStatus(st);
+            } else {
+                jobs = jobRepository.findAll();
+            }
         }
+
         List<JobResponse> responses = jobs.stream()
                 .map(jobService::toResponse)
                 .toList();
+
         return ResponseEntity.ok(responses);
     }
 
+
     @GetMapping("/summary")
     public ResponseEntity<?> summary(
-            @RequestHeader(TENANT_HEADER) String tenantId
+            @RequestParam String tenantId
     ) {
         long total = jobRepository.countByTenantId(tenantId);
         long pending = jobRepository.countByTenantIdAndStatusIn(tenantId, List.of(JobStatus.PENDING));
@@ -93,4 +108,25 @@ public class JobController {
         );
         return ResponseEntity.ok(summary);
     }
+
+    @GetMapping("/summary/global")
+    public ResponseEntity<?> globalSummary() {
+
+        long total = jobRepository.count();
+        long pending = jobRepository.countByStatus(JobStatus.PENDING);
+        long running = jobRepository.countByStatus(JobStatus.RUNNING);
+        long completed = jobRepository.countByStatus(JobStatus.COMPLETED);
+        long failed = jobRepository.countByStatus(JobStatus.FAILED);
+        long dlq = jobRepository.countByStatus(JobStatus.DLQ);
+
+        return ResponseEntity.ok(Map.of(
+                "pending", pending,
+                "running", running,
+                "completed", completed,
+                "failed", failed,
+                "dlq", dlq,
+                "total", total
+        ));
+    }
+
 }
