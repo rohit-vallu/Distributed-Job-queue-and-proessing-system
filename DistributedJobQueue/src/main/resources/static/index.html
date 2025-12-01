@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Distributed Job Queue Dashboard</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h1 { margin-bottom: 10px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f5f5f5; }
+        .status-pill { padding: 3px 6px; border-radius: 4px; font-size: 12px; }
+        .PENDING { background: #fffae6; }
+        .RUNNING { background: #e6f0ff; }
+        .COMPLETED { background: #e6ffed; }
+        .FAILED, .DLQ { background: #ffe6e6; }
+
+        textarea {
+            width: 400px;
+            height: 120px;
+            margin-top: 8px;
+        }
+
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Distributed Job Queue Dashboard</h1>
+
+<div>
+    <label>Tenant ID:
+        <input type="text" id="tenantId" value="demo-tenant">
+    </label>
+</div>
+
+<div style="margin-top: 20px;">
+    <label><strong>Job Payload (JSON):</strong></label><br>
+    <textarea id="payloadInput">
+{
+  "task": "sendEmail",
+  "email": "user@example.com",
+  "message": "Hello from the distributed queue!"
+}
+    </textarea>
+</div>
+
+<button onclick="submitJob()" style="margin-top: 10px;">Submit Job</button>
+<button onclick="refreshAll()">Refresh</button>
+
+<h2>Summary</h2>
+<pre id="summary"></pre>
+
+<h2>Jobs</h2>
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Attempts</th>
+        <th>MaxRetries</th>
+        <th>Last Error</th>
+        <th>Created</th>
+    </tr>
+    </thead>
+    <tbody id="jobsTableBody"></tbody>
+</table>
+
+<script>
+    function safeJsonParse(text) {
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            alert("Invalid JSON payload:\n\n" + e.message);
+            throw e;
+        }
+    }
+
+    async function submitJob() {
+        const tenantId = document.getElementById('tenantId').value;
+        const payloadText = document.getElementById('payloadInput').value;
+
+        const parsedPayload = safeJsonParse(payloadText);
+
+        const res = await fetch('/api/jobs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Tenant-Id': tenantId
+            },
+            body: JSON.stringify({
+                payload: JSON.stringify(parsedPayload),
+                maxRetries: 3
+            })
+        });
+
+        const data = await res.text();
+        console.log('Submission result:', data);
+        refreshAll();
+    }
+
+    async function refreshSummary() {
+        const tenantId = document.getElementById('tenantId').value;
+        const res = await fetch('/api/jobs/summary', {
+            headers: { 'X-Tenant-Id': tenantId }
+        });
+        document.getElementById('summary').textContent =
+            JSON.stringify(await res.json(), null, 2);
+    }
+
+    async function refreshJobs() {
+        const tenantId = document.getElementById('tenantId').value;
+        const res = await fetch('/api/jobs', {
+            headers: { 'X-Tenant-Id': tenantId }
+        });
+        const jobs = await res.json();
+
+        const tbody = document.getElementById('jobsTableBody');
+        tbody.innerHTML = '';
+
+        jobs.forEach(job => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${job.id}</td>
+                <td><span class="status-pill ${job.status}">${job.status}</span></td>
+                <td>${job.attemptCount}</td>
+                <td>${job.maxRetries}</td>
+                <td>${job.lastError || ''}</td>
+                <td>${job.createdAt || ''}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function refreshAll() {
+        refreshSummary();
+        refreshJobs();
+    }
+
+    // Auto-refresh every 5 seconds
+    setInterval(refreshAll, 5000);
+    refreshAll();
+</script>
+
+</body>
+</html>
