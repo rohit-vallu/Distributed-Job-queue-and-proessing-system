@@ -28,6 +28,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByTenantId(String tenantId);
 
+    List<Job> findByStatus(JobStatus status);
+
     List<Job> findByTenantIdAndStatus(String tenantId, JobStatus status);
 
     long countByStatus(JobStatus status);

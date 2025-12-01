@@ -3,37 +3,59 @@
 <head>
     <title>Distributed Job Queue Dashboard</title>
     <meta charset="UTF-8">
+
     <style>
         body { font-family: sans-serif; margin: 20px; }
-        h1 { margin-bottom: 10px; }
+        h1 { margin-bottom: 15px; }
+
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
         th { background: #f5f5f5; }
+
         .status-pill { padding: 3px 6px; border-radius: 4px; font-size: 12px; }
         .PENDING { background: #fffae6; }
         .RUNNING { background: #e6f0ff; }
         .COMPLETED { background: #e6ffed; }
         .FAILED, .DLQ { background: #ffe6e6; }
 
-        textarea {
-            width: 400px;
-            height: 120px;
-            margin-top: 8px;
-        }
+        textarea { width: 400px; height: 120px; margin-top: 8px; }
 
         pre {
             background: #f5f5f5;
             padding: 10px;
-            border-radius: 4px;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow: auto;
         }
+
+        #alertBox {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #f44336;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            font-size: 14px;
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #alertBox.show { opacity: 1; transform: translateY(0); }
     </style>
 </head>
+
 <body>
+
+<div id="alertBox"></div>
 
 <h1>Distributed Job Queue Dashboard</h1>
 
 <div>
-    <label>Tenant ID:
+    <label>Tenant:
         <input type="text" id="tenantId" value="new-tenant">
     </label>
 </div>
@@ -49,17 +71,28 @@
     </textarea>
 </div>
 
-<button onclick="submitJob()" style="margin-top: 10px;">Submit Job</button>
-<button onclick="refreshAll()">Refresh</button>
+<button id="submitBtn" style="margin-top: 10px;">Submit Job</button>
+<button id="refreshBtn">Refresh</button>
 
-<h2>Summary</h2>
-<pre id="summary"></pre>
+<div style="margin-top:10px;">
+    <label>
+        <input type="checkbox" id="tenantFilterToggle">
+        Show only current tenant summary
+    </label>
+</div>
+
+<h2>Tenant Summary</h2>
+<pre id="tenantSummary"></pre>
+
+<h2>Global Summary</h2>
+<pre id="globalSummary"></pre>
 
 <h2>Jobs</h2>
 <table>
     <thead>
     <tr>
         <th>ID</th>
+        <th>Tenant</th>
         <th>Status</th>
         <th>Attempts</th>
         <th>MaxRetries</th>
@@ -70,21 +103,27 @@
     <tbody id="jobsTableBody"></tbody>
 </table>
 
+<h2>Recent Events</h2>
+<pre id="eventsFeed"></pre>
+
 <script>
-    function safeJsonParse(text) {
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            alert("Invalid JSON payload:\n\n" + e.message);
-            throw e;
-        }
+
+    let tenantFilterEnabled = false;
+
+    function showAlert(msg) {
+        const box = document.getElementById("alertBox");
+        box.textContent = "⚠️ " + msg;
+        box.classList.add("show");
+        setTimeout(() => box.classList.remove("show"), 3000);
     }
 
     async function submitJob() {
         const tenantId = document.getElementById('tenantId').value;
         const payloadText = document.getElementById('payloadInput').value;
 
-        const parsedPayload = safeJsonParse(payloadText);
+        let parsed;
+        try { parsed = JSON.parse(payloadText); }
+        catch (e) { showAlert("Invalid JSON: " + e.message); return; }
 
         const res = await fetch('/api/jobs', {
             method: 'POST',
@@ -93,57 +132,94 @@
                 'X-Tenant-Id': tenantId
             },
             body: JSON.stringify({
-                payload: JSON.stringify(parsedPayload),
+                payload: JSON.stringify(parsed),
                 maxRetries: 3
             })
         });
 
-        const data = await res.text();
-        console.log('Submission result:', data);
-        refreshAll();
+        if (!res.ok) {
+            showAlert(await res.text());
+            return;
+        }
+
+        await refreshAll();
     }
 
     async function refreshSummary() {
         const tenantId = document.getElementById('tenantId').value;
-        const res = await fetch('/api/jobs/summary', {
-            headers: { 'X-Tenant-Id': tenantId }
-        });
-        document.getElementById('summary').textContent =
-            JSON.stringify(await res.json(), null, 2);
+
+        const tRes = await fetch(`/api/jobs/summary?tenantId=${tenantId}`);
+        document.getElementById('tenantSummary').textContent =
+            JSON.stringify(await tRes.json(), null, 2);
+
+        if (!tenantFilterEnabled) {
+            const gRes = await fetch("/api/jobs/summary/global");
+            document.getElementById('globalSummary').textContent =
+                JSON.stringify(await gRes.json(), null, 2);
+        } else {
+            document.getElementById('globalSummary').textContent =
+                "Global summary hidden (filter ON)";
+        }
     }
 
     async function refreshJobs() {
         const tenantId = document.getElementById('tenantId').value;
-        const res = await fetch('/api/jobs', {
-            headers: { 'X-Tenant-Id': tenantId }
-        });
+
+        let headers = {};
+        if (tenantFilterEnabled) headers['X-Tenant-Id'] = tenantId;
+
+        const res = await fetch("/api/jobs", { headers });
         const jobs = await res.json();
 
         const tbody = document.getElementById('jobsTableBody');
-        tbody.innerHTML = '';
+        tbody.innerHTML = "";
 
         jobs.forEach(job => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
+            tbody.innerHTML += `
+            <tr>
                 <td>${job.id}</td>
+                <td>${job.tenantId}</td>
                 <td><span class="status-pill ${job.status}">${job.status}</span></td>
                 <td>${job.attemptCount}</td>
                 <td>${job.maxRetries}</td>
-                <td>${job.lastError || ''}</td>
-                <td>${job.createdAt || ''}</td>
-            `;
-            tbody.appendChild(tr);
+                <td>${job.lastError || ""}</td>
+                <td>${job.createdAt}</td>
+            </tr>`;
         });
     }
 
-    function refreshAll() {
-        refreshSummary();
-        refreshJobs();
+    async function refreshEvents() {
+        const res = await fetch("/api/events");
+        if (!res.ok) return;
+
+        const events = await res.json();
+
+        const text = events
+            .map(evt =>
+                `[${evt.timestamp}] [${evt.eventType}] Job ${evt.jobId} (${evt.tenantId}) → ${evt.message}`
+            )
+            .join("\n");
+
+        document.getElementById("eventsFeed").textContent = text;
     }
 
-    // Auto-refresh every 5 seconds
-    setInterval(refreshAll, 5000);
+    async function refreshAll() {
+        console.log("refreshAll called");
+        await refreshSummary();
+        await refreshJobs();
+        await refreshEvents();
+    }
+
+    document.getElementById("submitBtn").addEventListener("click", submitJob);
+    document.getElementById("refreshBtn").addEventListener("click", refreshAll);
+    document.getElementById("tenantFilterToggle").addEventListener("change", () => {
+        tenantFilterEnabled = document.getElementById("tenantFilterToggle").checked;
+        refreshAll();
+    });
+
     refreshAll();
+    setInterval(refreshAll, 3000);
+
 </script>
 
 </body>

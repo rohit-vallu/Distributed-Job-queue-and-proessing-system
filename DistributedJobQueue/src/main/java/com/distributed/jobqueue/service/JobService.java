@@ -34,6 +34,8 @@ public class JobService {
     private final JobRepository jobRepository;
     private final RateLimiterService rateLimiterService;
 
+    private final JobEventService jobEventService;
+
     public JobResponse submitJob(String tenantId, CreateJobRequest request) {
         if (!rateLimiterService.allowSubmission(tenantId)) {
             throw new IllegalStateException("Rate limit exceeded (10 new jobs per minute)");
@@ -55,7 +57,7 @@ public class JobService {
                 List.of(JobStatus.PENDING, JobStatus.RUNNING)
         );
         if (runningCount >= MAX_CONCURRENT_JOBS_PER_TENANT) {
-            throw new IllegalStateException("Too many concurrent jobs (max 5 pending/running)");
+            throw new IllegalStateException("Too many concurrent jobs submitted for this tenant, (max 5 pending/running) per tenant is allowed ");
         }
 
         Instant now = Instant.now();
@@ -72,6 +74,12 @@ public class JobService {
 
         Job saved = jobRepository.save(job);
         log.info("Job submitted: jobId={}, tenantId={}", saved.getId(), tenantId);
+        jobEventService.logEvent(
+                saved.getId(),
+                tenantId,
+                "SUBMITTED",
+                "Job submitted by tenant " + tenantId
+        );
         return toResponse(saved);
     }
 
