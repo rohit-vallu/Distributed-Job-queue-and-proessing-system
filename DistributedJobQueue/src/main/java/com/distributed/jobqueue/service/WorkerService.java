@@ -22,7 +22,7 @@ public class WorkerService {
     // how long a job lease lasts (if worker dies before ack)
     private static final Duration LEASE_DURATION = Duration.ofMinutes(2);
 
-    // for demo: max jobs processed per tick
+    // for simplicity: max jobs processed per tick
     private static final int BATCH_SIZE = 5;
 
     private final JobRepository jobRepository;
@@ -72,17 +72,13 @@ public class WorkerService {
         try {
             log.info("Job started: jobId={}, tenantId={}", job.getId(), job.getTenantId());
 
-            // ======== SIMULATED JOB WORK ============
-            // In reality you'd parse job.getPayload() and perform some actual work.
-            // Here we just sleep for demo.
+            // In reality we'd parse job.getPayload() and perform some actual work.
             Thread.sleep(1000L);
-            // maybe pretend to sometimes fail:
+
             if (Math.random() < 0.2) {
                 throw new RuntimeException("Simulated random failure");
             }
-            // ========================================
 
-            // ACK success
             job.setStatus(JobStatus.COMPLETED);
             job.setLeasedUntil(null);
             job.setAttemptCount(job.getAttemptCount() + 1);

@@ -5,10 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Main Spring Boot application.
- *
- * IMPORTANT:
- * - Acts as both API server and worker process.
+ * - This acts as both API server and worker process.
  * - Every instance of this app includes WorkerService scheduled tasks.
  * - Multiple instances => multiple workers sharing the same Postgres queue.
  */
