@@ -10,13 +10,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Simple in-memory per-tenant rate limiter.
- *
- * Prototype implementation:
- * - Allows up to MAX_JOBS_PER_MINUTE per tenant.
- * - Uses sliding window based on timestamps.
- *
+ * Allows up to MAX_JOBS_PER_MINUTE per tenant.
  * NOTE:
- * In a real distributed deployment, this would be backed by Redis
+ * In a real distributed deployment, this could be extended to Redis
  * or another shared store to work across multiple nodes.
  */
 @Service

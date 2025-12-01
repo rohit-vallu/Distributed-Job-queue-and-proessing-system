@@ -6,8 +6,6 @@ import lombok.*;
 import java.time.Instant;
 
 /**
- * Job entity stored in the database.
- *
  * This table is the SHARED QUEUE used by ALL worker instances.
  */
 @Entity
@@ -29,7 +27,7 @@ public class Job {
     private Long id;
 
     /**
-     * Tenant that owns the job (used for quotas).
+     * Tenant that owns the job.
      */
     @Column(nullable = false)
     private String tenantId;
@@ -39,16 +37,11 @@ public class Job {
      */
     private String idempotencyKey;
 
-    /**
-     * Current job status.
-     */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JobStatus status;
 
-    /**
-     * Arbitrary JSON payload as String (simplified for prototype).
-     */
+
     @Lob
     private String payload;
 
@@ -74,8 +67,5 @@ public class Job {
     private Instant updatedAt;
     private Instant completedAt;
 
-    /**
-     * Last error message, if any.
-     */
     private String lastError;
 }
