@@ -26,7 +26,7 @@ public class WorkerService {
     private static final int BATCH_SIZE = 5;
 
     private final JobRepository jobRepository;
-    private final JobService jobService; // for reusing toResponse if needed
+    private final JobEventService jobEventService;
 
     // Run every 5 seconds
     @Scheduled(fixedDelay = 5000)
@@ -53,6 +53,12 @@ public class WorkerService {
                     jobRepository.save(job);
 
                     log.info("Job leased: jobId={}, tenantId={}", job.getId(), job.getTenantId());
+                    jobEventService.logEvent(
+                            job.getId(),
+                            job.getTenantId(),
+                            "LEASED",
+                            "Job leased by worker"
+                    );
                 });
 
         // After leasing, process outside of TX (to avoid long-running transactions)
@@ -70,13 +76,23 @@ public class WorkerService {
         }
 
         try {
+            if (job.getPayload().contains("failMe")) {
+                job.setAttemptCount(3);
+                throw new RuntimeException("Payload instructed failure");
+            }
             log.info("Job started: jobId={}, tenantId={}", job.getId(), job.getTenantId());
+            jobEventService.logEvent(
+                    job.getId(),
+                    job.getTenantId(),
+                    "STARTED",
+                    "Job started processing"
+            );
 
-            // In reality we'd parse job.getPayload() and perform some actual work.
+            // In real we'd parse job.getPayload() and perform some actual work.
             Thread.sleep(1000L);
 
             if (Math.random() < 0.2) {
-                throw new RuntimeException("Simulated random failure");
+                throw new RuntimeException("This failed");
             }
 
             job.setStatus(JobStatus.COMPLETED);
@@ -88,6 +104,12 @@ public class WorkerService {
             jobRepository.save(job);
 
             log.info("Job completed: jobId={}, tenantId={}", job.getId(), job.getTenantId());
+            jobEventService.logEvent(
+                    job.getId(),
+                    job.getTenantId(),
+                    "COMPLETED",
+                    "Job completed successfully"
+            );
         } catch (Exception e) {
             handleFailure(job, e);
         }
@@ -105,11 +127,24 @@ public class WorkerService {
             job.setLeasedUntil(null);
             log.warn("Job moved to DLQ: jobId={}, tenantId={}, error={}",
                     job.getId(), job.getTenantId(), e.getMessage());
+            jobEventService.logEvent(
+                    job.getId(),
+                    job.getTenantId(),
+                    "DLQ",
+                    "Job moved to DLQ after retry exhaustion"
+            );
         } else {
             job.setStatus(JobStatus.PENDING);
             job.setLeasedUntil(null);
             log.warn("Job failed, will retry: jobId={}, tenantId={}, attempt={}/{}, error={}",
                     job.getId(), job.getTenantId(), nextAttempt, job.getMaxRetries(), e.getMessage());
+            jobEventService.logEvent(
+                    job.getId(),
+                    job.getTenantId(),
+                    "FAILED",
+                    "Job failed: " + e.getMessage()
+            );
+
         }
 
         jobRepository.save(job);
