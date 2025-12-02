@@ -21,25 +21,24 @@ A lightweight distributed job queue with worker processing, retries, DLQ routing
 
 ## 🏗️ Architecture Overview
 
-┌─────────────┐      ┌──────────────────────┐
-│   REST API  │─────▶│  PostgreSQL Storage  │
-│  (Browser)  │◀─────│  (Port 8080)         │
-└─────────────┘      └──────────────────────┘
-        │                      ▲
-        │                      │
-        ▼                      │
-┌──────────────────┐           │
-│ Worker Scehduler │ ──────────┘
-│ (Port 10000)     │     Process Jobs (leases/polls) 
-└──────────────────┘
-        │
-job lifecycle events 
-        │                      
-        ▼
-┌──────────────────┐
-│   Dashboard UI   │
-│    (polling)     │
-└──────────────────┘
+         ┌──────────────────────────────┐      ┌─────────────────────────────┐  
+         │          REST API            │─────>│     PostgreSQL Storage      │
+         │          (Browser)           │<─────│                             │
+         └──────────────┬───────────────┘      └─────────────▲───────────────┘   
+                        │                                    │
+                        │                                    │           
+         ┌──────────────▼──────────────┐                     │
+         │       Worker Scheduler      │                     │
+         │      (per app instance)     │── leases/polls ─────│
+         └─────────────────────────────┘
+                        │
+                job lifecycle events
+                        │
+         ┌──────────────▼──────────────┐
+         │        Dashboard UI         │
+         │          (polling)          │
+         └─────────────────────────────┘
+
 
 ---
 
@@ -247,19 +246,20 @@ FAILED      → retry (up to 3 times)
 ## 📁 Project Structure
 
 ---
-
+```
 src/
 ├── main/java/com/distributed/jobqueue
-│     ├── controller       # REST APIs for jobs & events
-│     ├── service          # Job service, worker, rate limiter, event logger
-│     ├── repository       # Spring Data JPA repositories
-│     ├── model            # Job, JobEvent, enums
-│     └── dto              # Request/response payloads
-└── main/resources
-├── static/index.html       # Dashboard UI
-├── application.yml         # Local config
-└── application-render.yml  # Render deployment config
-
+│   ├── controller        # REST APIs for jobs & events
+│   ├── service           # Job service, worker, rate limiter, event logger
+│   ├── repository        # Spring Data JPA repositories
+│   ├── model             # Job, JobEvent, enums
+│   └── dto               # Request/response payloads
+│
+├── main/resources
+│   ├── static/index.html # Dashboard UI
+│   ├── application.yml   # Local config
+│   └── application-render.yml  # Render deployment config
+```
 ---
 ## 🎯 Deployment
 The application is deployed on Render with -
