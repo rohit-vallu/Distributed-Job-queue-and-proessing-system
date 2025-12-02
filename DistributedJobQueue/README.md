@@ -2,7 +2,6 @@
 
 A lightweight distributed job queue with worker processing, retries, DLQ routing, tenant limits, and a real-time dashboard UI. Built with Spring Boot and PostgreSQL.
 
----
 
 ## 🚀 Features
 
@@ -17,7 +16,6 @@ A lightweight distributed job queue with worker processing, retries, DLQ routing
 - **PostgreSQL Persistence**
 - **Horizontally Scalable Worker Logic**
 
----
 
 ## 🏗️ Architecture Overview
 
@@ -38,9 +36,6 @@ A lightweight distributed job queue with worker processing, retries, DLQ routing
          │        Dashboard UI         │
          │          (polling)          │
          └─────────────────────────────┘
-
-
----
 
 ## 🧰 Tech Stack
 
