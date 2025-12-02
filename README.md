@@ -1,1 +1,1 @@
-Under DistributedJobQueue Directory
+The README.md is elaborated under DistributedJobQueue Directory.
