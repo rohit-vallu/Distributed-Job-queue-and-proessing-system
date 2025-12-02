@@ -54,9 +54,6 @@ A lightweight distributed job queue with worker processing, retries, DLQ routing
 - **Gradle**
 
 
----
-
-
 ## ⚙️ Local Setup
 ### 1️⃣ Start PostgreSQL
 
@@ -79,7 +76,6 @@ SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 ### 3️⃣ Access the Dashboard
 ```[http://localhost:8080/](http://localhost:8080/)```
 
----
 
 ## 🌐 API Endpoints
 
@@ -117,9 +113,6 @@ SUBMITTED, LEASED, STARTED, COMPLETED, FAILED, DLQ
 ```
   
 ## 🧪 Useful API curl commands
-
----
-
 **Submit a job**
 ```
 curl -X POST http://localhost:8080/api/jobs \
@@ -137,8 +130,6 @@ curl http://localhost:8080/api/jobs
 ```
 curl http://localhost:8080/api/events
 ```
-
----
 
 ## ⚙️ System Parameters
 
@@ -184,8 +175,6 @@ curl http://localhost:8080/api/events
 - Manual & auto refresh
 - JSON payload submission
 
----
-
 ## 🗄️ Database Schema
 
 ### **Jobs Table (`jobs`)**
@@ -225,7 +214,6 @@ curl http://localhost:8080/api/events
 **Index**
 - `(timestamp DESC)`
 
----
 
 ## 🌀 Job Lifecycle Summary
 ```
@@ -241,11 +229,9 @@ FAILED      → retry (up to 3 times)
    ↓
   DLQ         (after max retries)
 ```
----
 
 ## 📁 Project Structure
 
----
 ```
 src/
 ├── main/java/com/distributed/jobqueue
@@ -260,7 +246,7 @@ src/
 │   ├── application.yml   # Local config
 │   └── application-render.yml  # Render deployment config
 ```
----
+
 ## 🎯 Deployment
 The application is deployed on Render with -
 
