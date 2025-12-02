@@ -30,7 +30,7 @@ public class JobEvent {
     @JsonProperty("eventType")
     private String eventType;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String message;
 
     private Instant timestamp;
