@@ -59,7 +59,6 @@ job lifecycle events
 
 
 ## ⚙️ Local Setup
-
 ### 1️⃣ Start PostgreSQL
 
 ```
@@ -156,7 +155,6 @@ curl http://localhost:8080/api/events
 
 
 ## 🧩 System Components
-
 ### **API Server (`spring-boot` app)**
 - Handles REST API requests
 - Accepts job submissions
