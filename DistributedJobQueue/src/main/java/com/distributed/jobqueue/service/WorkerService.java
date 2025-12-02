@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,8 @@ public class WorkerService {
 
     private final JobRepository jobRepository;
     private final JobEventService jobEventService;
+
+    private final ObjectMapper objectMapper;
 
     // Run every 5 seconds
     @Scheduled(fixedDelay = 5000)
@@ -88,7 +93,7 @@ public class WorkerService {
                     "Job started processing"
             );
 
-            // In real we'd parse job.getPayload() and perform some actual work.
+            applyPayloadSideEffects(job);
             Thread.sleep(1000L);
 
             if (Math.random() < 0.2) {
@@ -112,6 +117,34 @@ public class WorkerService {
             );
         } catch (Exception e) {
             handleFailure(job, e);
+        }
+    }
+
+    private void applyPayloadSideEffects(Job job) {
+        try {
+            if (job.getPayload() == null || job.getPayload().isBlank()) {
+                return;
+            }
+
+            JsonNode root = objectMapper.readTree(job.getPayload());
+
+            // If payload has a "color" field, emit a COLOR_CHANGE event
+            if (root.hasNonNull("color")) {
+                String color = root.get("color").asText();
+                log.info("Applying color change", color);
+
+                jobEventService.logEvent(
+                        job.getId(),
+                        job.getTenantId(),
+                        "COLOR_CHANGE",
+                        color
+                );
+            }
+
+            // You can extend this later for more actions, e.g. "action": "something"
+
+        } catch (Exception e) {
+            log.warn("Failed to parse payload for job {} for side effects: {}", job.getId(), e.getMessage());
         }
     }
 

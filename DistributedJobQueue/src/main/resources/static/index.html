@@ -61,12 +61,44 @@
 </div>
 
 <div style="margin-top: 20px;">
+    <!-- Legend / Help Section -->
+    <div style="margin-top: 20px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; background: #f9f9f9;">
+        <h3>Legend: Sample Payloads</h3>
+        <p>Try any of the following JSON payloads:</p>
+
+        <pre style="background:#efefef; padding:10px; border-radius:5px;">
+<strong>1-> Change Page Text Color</strong>
+{
+  "task": "color change"
+  "color": "red"/"blue"/"black" ...
+}
+    </pre>
+
+        <pre style="background:#efefef; padding:10px; border-radius:5px;">
+<strong>2 -> Force Job Failure (moves to DLQ eventually)</strong>
+{
+  "task": "failMe"
+}
+    </pre>
+
+        <pre style="background:#efefef; padding:10px; border-radius:5px;">
+<strong>3->  Normal Job (does nothing except complete)</strong>
+{
+  "task": "sendMail"
+}
+    </pre>
+
+        <p style="font-size:13px; color:#555;">
+            💡 Workers will parse your payload and apply actions.<br>
+            Only <strong>color</strong> payloads trigger UI updates, <strong>failMe</strong> triggers retries/DLQ.
+        </p>
+    </div>
+
     <label><strong>Job Payload (JSON):</strong></label><br>
     <textarea id="payloadInput">
 {
-  "task": "sendEmail",
-  "email": "user@example.com",
-  "message": "Hello from the distributed queue!"
+  "task": "change",
+  "color": "red"
 }
     </textarea>
 </div>
@@ -201,6 +233,20 @@
             .join("\n");
 
         document.getElementById("eventsFeed").textContent = text;
+
+        const sortedEvents = [...events].sort(
+            (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+        );
+
+        const latestColorEvent = sortedEvents
+            .slice()
+            .reverse()
+            .find(e => e.eventType === "COLOR_CHANGE");
+
+        if (latestColorEvent) {
+            const color = latestColorEvent.message;
+            document.body.style.color = color;   // change entire page text color
+        }
     }
 
     async function refreshAll() {
